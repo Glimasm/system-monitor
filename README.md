@@ -11,6 +11,9 @@ Projeto desenvolvido para praticar Python por meio de uma ferramenta útil para 
 - Uso do sistema de arquivos que contém `/`, com porcentagem e espaço utilizado e total em GiB.
 - Atualização aproximadamente a cada segundo.
 - Encerramento com `Ctrl+C`.
+- Alerta quando o uso de RAM atinge ou ultrapassa 80%.
+- Histórico das leituras salvo automaticamente em CSV.
+- Limpeza do restante da linha quando a mensagem de alerta desaparece.
 
 ## Exemplo de saída
 
@@ -62,18 +65,37 @@ Monitor Stopped
 
 O intervalo de medição está definido pela constante `UPDATE_INTERVAL`, no início de `monitor.py`. O valor padrão é `1`, em segundos; caso altere, mantenha um valor maior que zero.
 
+O limite do alerta de RAM está na constante `RAM_ALERT_THRESHOLD`, em `monitor.py`. O padrão é `80` (porcentagem). O alerta é exibido enquanto o uso estiver igual ou acima desse limite.
+
+## Histórico em CSV
+
+A cada leitura, o programa acrescenta uma linha ao arquivo `history.csv`, criado na mesma pasta de `history.py`. As colunas são:
+
+```text
+timestamp,cpu_percent,ram_percent,disk_percent
+2026-09-24T14:30:00,12.5,42.0,38.4
+```
+
+O exemplo é ilustrativo. A data e a hora são locais, com precisão de segundos; as métricas são percentuais. O cabeçalho é escrito somente quando o arquivo não existe ou está vazio. Ao reiniciar o monitor, as leituras anteriores são preservadas.
+
+O histórico cresce enquanto o monitor está rodando; ainda não há rotação ou limite de tamanho. A pasta precisa permitir escrita. O CSV é um arquivo gerado localmente e está no `.gitignore`.
+
 ## Organização do código
 
-O programa está concentrado em `monitor.py`:
+- `monitor.py`: coleta CPU, RAM e disco, converte bytes para GiB, calcula o alerta e coordena a exibição e a gravação no laço principal. Trata o encerramento com `Ctrl+C`.
+- `display.py`: contém `show_metrics()`, responsável pela formatação e exibição. Usa `\r` e a sequência ANSI `\033[K` para atualizar e limpar a linha em um terminal compatível.
+- `history.py`: contém `save_metrics()`, responsável pelo caminho do CSV, cabeçalho e gravação das leituras.
+- `requirements.txt`: declara `psutil==7.2.2`. Os módulos `csv`, `datetime` e `pathlib` fazem parte da biblioteca padrão do Python.
 
-- `show_metrics()`: formata e exibe as métricas no terminal.
-- `bytes_to_gib()`: converte valores em bytes para GiB.
-- `main()`: coleta os dados continuamente e trata a interrupção pelo teclado.
+Os módulos usam funções; não há classes nesta versão.
 
 ## Aprendizados
 
 - Consulta de informações do sistema com `psutil`.
-- Organização do código em funções.
+- Organização do código em funções e módulos, com imports entre arquivos.
+- Condições e constantes para definir alertas.
+- Escrita de CSV em modo de acréscimo, usando `with`.
+- Caminhos com `pathlib` e registro de data/hora com `datetime`.
 - Laços de repetição e tratamento de `KeyboardInterrupt`.
 - Formatação de números com f-strings.
 - Atualização da saída do terminal com `\r`, `end` e `flush`.
