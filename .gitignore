@@ -3,4 +3,5 @@ system_venv/
 venv/
 __pycache__/
 *.pyc
-
+history.csv
+.gitignore.save
