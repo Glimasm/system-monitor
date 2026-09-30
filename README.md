@@ -9,16 +9,17 @@ Projeto desenvolvido para praticar Python por meio de uma ferramenta útil para 
 - Uso geral da CPU em porcentagem.
 - Uso de memória RAM em porcentagem, com quantidade utilizada e total em GiB.
 - Uso do sistema de arquivos que contém `/`, com porcentagem e espaço utilizado e total em GiB.
-- Atualização aproximadamente a cada segundo.
+- Intervalo de coleta configurável, com padrão de um segundo.
 - Encerramento com `Ctrl+C`.
-- Alerta quando o uso de RAM atinge ou ultrapassa 80%.
+- Alerta quando o uso de RAM atinge ou ultrapassa o limite configurado, com padrão de 80%.
+- Validação do intervalo e do limite de RAM na criação do monitor.
 - Histórico das leituras salvo automaticamente em CSV.
 - Limpeza do restante da linha quando a mensagem de alerta desaparece.
 
 ## Exemplo de saída
 
 ```text
-CPU:  12.5% | RAM:  42.0% (6.25/15.62) GiB | DISK:  38.4% (91.20/237.50 GiB)
+CPU:  12.5% | RAM:  42.0%(6.25/15.62) GiB | DISK:  38.4%(91.20/237.50 GiB) |
 ```
 
 Os valores são ilustrativos. Durante a execução, as métricas são atualizadas na mesma linha. GiB é uma unidade de tamanho equivalente a 1.073.741.824 bytes.
@@ -63,9 +64,23 @@ A primeira leitura aparece após aproximadamente um segundo. Para encerrar, pres
 Monitor Stopped
 ```
 
-O intervalo de medição está definido pela constante `UPDATE_INTERVAL`, no início de `monitor.py`. O valor padrão é `1`, em segundos; caso altere, mantenha um valor maior que zero.
+### Configuração
 
-O limite do alerta de RAM está na constante `RAM_ALERT_THRESHOLD`, em `monitor.py`. O padrão é `80` (porcentagem). O alerta é exibido enquanto o uso estiver igual ou acima desse limite.
+As configurações são atributos de `SystemMonitor`. Por padrão, `main()` cria o monitor com `SystemMonitor()`, usando intervalo de `1` segundo e limite de RAM de `80%`.
+
+Para usar outros valores, altere a criação do objeto dentro de `main()`, em `monitor.py`. Por exemplo:
+
+```python
+monitor = SystemMonitor(update_interval=2, ram_threshold=90)
+```
+
+Nesse exemplo, a coleta de CPU usa um intervalo de dois segundos e o alerta aparece quando o uso de RAM atinge ou ultrapassa 90%:
+
+```text
+WARNING: HIGH RAM USAGE
+```
+
+O intervalo deve ser maior que zero e o limite de RAM deve estar entre 0 e 100, incluindo os extremos. O construtor gera `ValueError` para valores fora dessas faixas, com mensagens em inglês. Ainda não há configuração por argumentos de linha de comando.
 
 ## Histórico em CSV
 
@@ -82,18 +97,20 @@ O histórico cresce enquanto o monitor está rodando; ainda não há rotação o
 
 ## Organização do código
 
-- `monitor.py`: coleta CPU, RAM e disco, converte bytes para GiB, calcula o alerta e coordena a exibição e a gravação no laço principal. Trata o encerramento com `Ctrl+C`.
-- `display.py`: contém `show_metrics()`, responsável pela formatação e exibição. Usa `\r` e a sequência ANSI `\033[K` para atualizar e limpar a linha em um terminal compatível.
+- `monitor.py`: define `SystemMetrics`, uma `dataclass` com os sete campos de uma leitura, e `SystemMonitor`, que guarda as configurações, coleta as métricas com `collect_metrics()` e calcula o alerta com `get_ram_alert()`. A função `bytes_to_gib()` converte as unidades; `main()` coordena coleta, exibição e gravação, tratando o encerramento com `Ctrl+C`.
+- `display.py`: contém `show_metrics(metrics, ram_alert)`, que recebe o objeto de métricas e a mensagem de alerta, sendo responsável pela formatação e exibição. Usa `\r` e a sequência ANSI `\033[K` para atualizar e limpar a linha em um terminal compatível.
 - `history.py`: contém `save_metrics()`, responsável pelo caminho do CSV, cabeçalho e gravação das leituras.
-- `requirements.txt`: declara `psutil==7.2.2`. Os módulos `csv`, `datetime` e `pathlib` fazem parte da biblioteca padrão do Python.
+- `requirements.txt`: declara `psutil==7.2.2`. Os módulos `dataclasses`, `csv`, `datetime` e `pathlib` fazem parte da biblioteca padrão do Python.
 
-Os módulos usam funções; não há classes nesta versão.
+Cada chamada de `collect_metrics()` retorna um novo objeto `SystemMetrics`. A exibição acessa seus atributos, enquanto `save_metrics()` continua recebendo os três percentuais separadamente.
 
 ## Aprendizados
 
 - Consulta de informações do sistema com `psutil`.
 - Organização do código em funções e módulos, com imports entre arquivos.
-- Condições e constantes para definir alertas.
+- Classes com configurações por instância e métodos de coleta e alerta.
+- Representação de uma leitura com `dataclass` e anotações de tipo.
+- Condições e validação de parâmetros com `ValueError`.
 - Escrita de CSV em modo de acréscimo, usando `with`.
 - Caminhos com `pathlib` e registro de data/hora com `datetime`.
 - Laços de repetição e tratamento de `KeyboardInterrupt`.
